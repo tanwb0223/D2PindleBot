@@ -1,0 +1,108 @@
+{
+  "game": {
+    "window_title": "Diablo II: Resurrected",
+    "process_name": "D2R.exe",
+    "resolution": "1920x1080"
+  },
+  "bot": {
+    "game_name": "pindle",
+    "game_password": "",
+    "difficulty": "hell",
+    "runs_count": 500,
+    "delay_between_actions": 0.2,
+    "delay_between_runs": 1.2,
+    "character_class": "sorceress",
+    "randomize_delays": true,
+    "randomize_variance": 0.2,
+    "coordinate_offset": 8,
+    "game_name_rotation": {
+      "enabled": true,
+      "mode": "sequential",
+      "names": ["pindle1", "pindle2", "pindle3", "pindle4", "pindle5"],
+      "change_every": 10,
+      "add_random_suffix": false
+    }
+  },
+  "hotkeys": {
+    "teleport": "右键",
+    "blizzard": "f1",
+    "static_field": "f2",
+    "town_portal": "f3",
+    "health_potion": "1",
+    "mana_potion": "2"
+  },
+  "coordinates": {
+    "lobby": {
+      "create_game_button": [960, 800],
+      "game_name_input": [960, 450],
+      "game_password_input": [960, 520],
+      "start_game_button": [960, 680]
+    },
+    "in_game": {
+      "spawn_position": [960, 540],
+      "red_portal_position": [880, 480],
+      "pindle_spawn_area": [960, 400],
+      "town_wp_position": [920, 520],
+      "town_safe_spots": [
+        [960, 520],
+        [940, 500],
+        [920, 480]
+      ]
+    },
+    "teleport_path": [
+      [960, 450],
+      [960, 380],
+      [960, 350]
+    ],
+    "town_to_portal_path": [
+      [960, 520],
+      [920, 500],
+      [880, 480]
+    ],
+    "pickup_scan_center": [960, 400],
+    "legacy_pickup_positions": [
+      [920, 380],
+      [1000, 380],
+      [960, 420],
+      [960, 360]
+    ]
+  },
+  "pickup": {
+    "use_smart_pickup": true,
+    "item_types": ["unique", "set", "rune"],
+    "scan_area": [560, 200, 1360, 700],
+    "scan_after_kill_delay": 2.0,
+    "min_detection_area": 25,
+    "max_detection_area": 8000,
+    "pickup_radius": 200,
+    "click_offset_y": 10,
+    "wait_for_corpse_explosion": true
+  },
+  "sorceress": {
+    "teleport_delay": 0.15,
+    "cast_delay": 0.25,
+    "static_field_casts": 3,
+    "main_attack_skill": "blizzard",
+    "blizzard_casts": 3,
+    "blizzard_delay": 0.6,
+    "use_energy_shield": false,
+    "mana_threshold": 30,
+    "safety": {
+      "teleport_away_after_cast": true,
+      "safe_distance_x": 100,
+      "safe_distance_y": -80,
+      "drink_potion_after_kill": true,
+      "wait_before_pickup": 1.5
+    },
+    "navigation": {
+      "max_teleport_retries": 2,
+      "stuck_detection": true,
+      "alternative_path_on_fail": true
+    }
+  },
+  "d2r": {
+    "resolution": "1920x1080",
+    "graphics_mode": "resurrected",
+    "window_mode": "fullscreen"
+  }
+}
