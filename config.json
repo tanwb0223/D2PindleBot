@@ -69,14 +69,23 @@
   },
   "pickup": {
     "use_smart_pickup": true,
-    "item_types": ["unique", "set", "rune"],
+    "item_types": ["unique", "rune"],
     "scan_area": [560, 200, 1360, 700],
     "scan_after_kill_delay": 2.0,
     "min_detection_area": 25,
     "max_detection_area": 8000,
     "pickup_radius": 200,
     "click_offset_y": 10,
-    "wait_for_corpse_explosion": true
+    "wait_for_corpse_explosion": true,
+    "filter": {
+      "enabled": true,
+      "pickup_all_runes": true,
+      "min_rune_level": "Io",
+      "pickup_all_uniques": true,
+      "filter_by_size": false,
+      "skip_small_items": false,
+      "skip_large_items": false
+    }
   },
   "sorceress": {
     "teleport_delay": 0.15,

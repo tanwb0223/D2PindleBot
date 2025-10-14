@@ -6,6 +6,7 @@ from typing import Dict, Any, List
 from window_controller import WindowController
 from input_controller import InputController
 from item_detector import ItemDetector
+from item_filter import ItemFilter
 from utils import random_delay, sleep_random, random_offset
 
 
@@ -27,6 +28,7 @@ class D2PindleBot:
         self.window_controller = WindowController(self.config['game']['window_title'])
         self.input_controller = InputController()
         self.item_detector = ItemDetector()
+        self.item_filter = ItemFilter(self.config)
         self.logger = logging.getLogger(__name__)
         self.run_count = 0
         self.is_running = False
@@ -37,6 +39,11 @@ class D2PindleBot:
         # 游戏名称轮换
         self.game_name_rotation = self.config.get('bot', {}).get('game_name_rotation', {})
         self.current_name_index = 0
+        
+        # 打印拾取策略
+        pickup_summary = self.item_filter.get_pickup_summary()
+        self.logger.info(f"拾取策略: 符文={pickup_summary['runes']}, "
+                        f"暗金={pickup_summary['uniques']}")
     
     def initialize(self) -> bool:
         self.logger.info("正在初始化机器人...")
@@ -305,10 +312,31 @@ class D2PindleBot:
                 
                 if items:
                     self.logger.info(f"检测到 {len(items)} 个物品")
+                    picked_count = 0
+                    
                     for idx, (x, y, item_type) in enumerate(items):
-                        self.logger.info(f"拾取物品 {idx+1} [{item_type}]: ({x}, {y})")
-                        self.input_controller.click(x, y)
-                        time.sleep(0.3)
+                        # 根据物品类型判断是否拾取
+                        should_pickup = False
+                        
+                        if item_type == 'rune':
+                            should_pickup = self.item_filter.should_pickup_rune()
+                            reason = "符文"
+                        elif item_type == 'unique':
+                            should_pickup = self.item_filter.should_pickup_unique()
+                            reason = "暗金"
+                        else:
+                            should_pickup = True
+                            reason = item_type
+                        
+                        if should_pickup:
+                            self.logger.info(f"拾取物品 {idx+1} [{reason}]: ({x}, {y})")
+                            self.input_controller.click(x, y)
+                            time.sleep(0.3)
+                            picked_count += 1
+                        else:
+                            self.logger.debug(f"跳过物品 {idx+1} [{item_type}]: 低价值")
+                    
+                    self.logger.info(f"拾取完成: {picked_count}/{len(items)} 个物品")
                 else:
                     self.logger.info("未检测到可拾取物品")
             except Exception as e:
