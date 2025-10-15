@@ -7,56 +7,66 @@ from window_controller import WindowController
 from input_controller import InputController
 from item_detector import ItemDetector
 from item_filter import ItemFilter
+from statistics import Statistics
 from utils import random_delay, sleep_random, random_offset
-
-
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('bot.log', encoding='utf-8'),
-        logging.StreamHandler()
-    ]
-)
+from config_validator import ConfigValidator
+from logger_config import LoggerConfig
+from performance_monitor import get_global_monitor, monitor_performance
 
 
 class D2PindleBot:
     def __init__(self, config_path: str = 'config.json'):
-        with open(config_path, 'r', encoding='utf-8') as f:
-            self.config: Dict[str, Any] = json.load(f)
-        
+        # 设置日志
+        self.logger = LoggerConfig.get_session_logger()
+        self.performance_monitor = get_global_monitor()
+
+        # 加载和验证配置
+        config_validator = ConfigValidator()
+        self.config = config_validator.load_and_validate_config(config_path)
+
+        # 初始化组件
         self.window_controller = WindowController(self.config['game']['window_title'])
         self.input_controller = InputController()
         self.item_detector = ItemDetector()
         self.item_filter = ItemFilter(self.config)
-        self.logger = logging.getLogger(__name__)
+        self.statistics = Statistics()
+
+        # 运行状态
         self.run_count = 0
         self.is_running = False
-        
+
         # 随机化设置
         self.randomize = self.config.get('bot', {}).get('randomize_delays', True)
-        
+
         # 游戏名称轮换
         self.game_name_rotation = self.config.get('bot', {}).get('game_name_rotation', {})
         self.current_name_index = 0
-        
+
         # 打印拾取策略
         pickup_summary = self.item_filter.get_pickup_summary()
         self.logger.info(f"拾取策略: 符文={pickup_summary['runes']}, "
                         f"暗金={pickup_summary['uniques']}")
-    
+
+        # 启动性能监控
+        self.performance_monitor.start_monitoring(interval=2.0)
+
+    @monitor_performance("initialize")
     def initialize(self) -> bool:
         self.logger.info("正在初始化机器人...")
-        if not self.window_controller.find_window():
-            self.logger.error(f"未找到游戏窗口: {self.config['game']['window_title']}")
+        try:
+            if not self.window_controller.find_window():
+                self.logger.error(f"未找到游戏窗口: {self.config['game']['window_title']}")
+                return False
+
+            if not self.window_controller.activate_window():
+                self.logger.error("无法激活游戏窗口")
+                return False
+
+            self.logger.info("机器人初始化成功")
+            return True
+        except Exception as e:
+            self.logger.error(f"初始化失败: {e}")
             return False
-        
-        if not self.window_controller.activate_window():
-            self.logger.error("无法激活游戏窗口")
-            return False
-        
-        self.logger.info("机器人初始化成功")
-        return True
     
     def get_current_game_name(self) -> str:
         """获取当前应使用的游戏名称"""
@@ -313,6 +323,7 @@ class D2PindleBot:
                 if items:
                     self.logger.info(f"检测到 {len(items)} 个物品")
                     picked_count = 0
+                    picked_items = {"unique": 0, "rune": 0, "set": 0, "rare": 0}
                     
                     for idx, (x, y, item_type) in enumerate(items):
                         # 根据物品类型判断是否拾取
@@ -333,12 +344,16 @@ class D2PindleBot:
                             self.input_controller.click(x, y)
                             time.sleep(0.3)
                             picked_count += 1
+                            if item_type in picked_items:
+                                picked_items[item_type] += 1
                         else:
                             self.logger.debug(f"跳过物品 {idx+1} [{item_type}]: 低价值")
                     
                     self.logger.info(f"拾取完成: {picked_count}/{len(items)} 个物品")
+                    return picked_items
                 else:
                     self.logger.info("未检测到可拾取物品")
+                    return {}
             except Exception as e:
                 self.logger.warning(f"智能拾取失败: {e}，使用固定坐标")
                 self._pickup_by_positions()
@@ -363,30 +378,51 @@ class D2PindleBot:
         time.sleep(3)
     
     def run_single_game(self):
+        success = False
+        picked_items = {"unique": 0, "rune": 0, "set": 0, "rare": 0}
+        
         try:
+            self.statistics.start_run()
+            
             self.create_game()
             self.navigate_to_red_portal()  # 从城镇导航到红门
             self.use_red_portal()           # 进入红门
             self.navigate_to_pindle()       # 传送到Pindle
             self.kill_pindle()
-            self.pickup_items()
+            
+            # 拾取物品并记录
+            items = self.pickup_items()
+            if items:
+                for item_type, count in items.items():
+                    picked_items[item_type] = count
+            
             self.leave_game()
             
             self.run_count += 1
-            self.logger.info(f"完成第 {self.run_count} 次刷怪")
+            success = True
+            
+            self.logger.info(f"✅ 完成第 {self.run_count} 次 | {self.statistics.get_short_status()}")
+            
+            # 每5分钟生成一次详细报告
+            if self.statistics.should_report(interval=300):
+                self.logger.info(self.statistics.get_report())
             
             # 随机化两局之间的延迟
             base_delay = self.config['bot']['delay_between_runs']
             if self.randomize:
                 delay = random_delay(base_delay, 0.3)
-                self.logger.info(f"等待 {delay:.2f} 秒后开始下一局")
                 time.sleep(delay)
             else:
                 time.sleep(base_delay)
             
         except Exception as e:
-            self.logger.error(f"运行出错: {e}", exc_info=True)
-            self.leave_game()
+            self.logger.error(f"❌ 运行出错: {e}", exc_info=True)
+            try:
+                self.leave_game()
+            except:
+                pass
+        finally:
+            self.statistics.end_run(success=success, items=picked_items)
     
     def start(self):
         if not self.initialize():
@@ -407,9 +443,18 @@ class D2PindleBot:
     
     def stop(self):
         self.is_running = False
-        self.logger.info(f"机器人已停止，共完成 {self.run_count} 次刷怪")
+        
+        # 显示最终统计报告
+        self.logger.info("\n" + "=" * 50)
+        self.logger.info("程序已停止")
+        self.logger.info(self.statistics.get_report(detailed=True))
+        self.logger.info("=" * 50)
+        
+        # 保存统计到文件
+        self.statistics.save_to_file("run_statistics.txt")
+        self.logger.info("统计数据已保存到 run_statistics.txt")
 
 
 if __name__ == '__main__':
-    bot = D2BaalBot()
+    bot = D2PindleBot()
     bot.start()

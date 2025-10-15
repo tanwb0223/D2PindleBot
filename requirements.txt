@@ -1,5 +1,8 @@
+# 核心依赖
 pywin32>=306
-pyautogui>=0.9.54
 opencv-python>=4.8.0
 numpy>=1.26.0
 Pillow>=10.0.0
+
+# 可选依赖（用于调试和开发）
+# pyautogui>=0.9.54  # 已弃用，改用自研输入控制器
